@@ -1,0 +1,51 @@
+.grid {
+    -fx-vgap: 2;
+    -fx-hgap: 2;
+    -fx-padding: 2;
+}
+
+.background {
+    -fx-background-color: #161616;
+}
+
+.score {
+    -fx-text-fill: rgb(228, 228, 228);
+    -fx-font-size: 40px;
+    -fx-font-weight: bold;
+    -fx-font-family: "Segoe UI";
+}
+
+.subScore {
+    -fx-text-fill: rgb(190, 190, 190);
+    -fx-font-size: 13px;
+    -fx-font-family: "Segoe UI Semilight";
+    -fx-padding: 0 0 15px 0;
+}
+
+.check-box {
+    -fx-text-fill: rgb(190, 190, 190);
+    -fx-font-size: 13px;
+    -fx-font-family: "Segoe UI Semilight";
+    -fx-padding: 0 0 5px 0;
+}
+
+.check-box .box {
+    -fx-background-color: #161616;
+    -fx-border-color:rgb(228, 228, 228);
+    -fx-border-radius:3px; 
+}
+
+.check-box:selected .mark {
+    -fx-background-color: #161616;
+}
+
+.check-box:selected .box {
+    -fx-background-color: rgb(228, 228, 228);
+}
+
+.pause {
+    -fx-font-weight: bold;
+    -fx-text-fill: rgb(190, 190, 190);
+    -fx-font-size: 13px;
+    -fx-font-family: "Segoe UI";
+}
