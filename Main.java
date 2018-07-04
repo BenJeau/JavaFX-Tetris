@@ -276,7 +276,7 @@ public class Main extends Application {
         colors.put(1, color2);
 
         // Background music setup
-        mainThemePlayer = new MediaPlayer(new Media(new File("resources/Tetris.wav").toURI().toString()));
+        mainThemePlayer = new MediaPlayer(new Media(new File("resources/Tetris.mp3").toURI().toString()));
         mainThemePlayer.setOnEndOfMedia(() -> {
             mainThemePlayer.seek(Duration.ZERO);
         });
@@ -455,11 +455,11 @@ public class Main extends Application {
      * Creates/Resets variables needed to start a new game and calls .
      */
     public void startNewGame() {
-        shapeSpeed = board.getTimePerBlock();
         board = new Board();
         running = true;
         gameOver = false;
         pressed = true;
+        shapeSpeed = board.getTimePerBlock();
 
         mainThemePlayer.seek(Duration.ZERO);
         paint();
