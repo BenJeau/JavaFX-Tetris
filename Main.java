@@ -112,6 +112,11 @@ public class Main extends Application {
      */
     public void paint() {
         if (!board.getGameOver()) {
+
+            // In case the user presses the spacebar too quickly
+            if (checkSound.isSelected() && mainThemePlayer.getStatus() == MediaPlayer.Status.PAUSED) {
+                playMusic();
+            }
             
             // Updates the speed of the falling block if the speed changed
             if (shapeSpeed != board.getTimePerBlock()) {
@@ -231,7 +236,7 @@ public class Main extends Application {
             }
 
             // Elements of the game over screen
-            gameOverImg = new ImageView(new Image("resources/gameOver.png"));
+            gameOverImg = new ImageView(new Image("file:resources/gameOver.png"));
 
             gameOverTitle = new Label("GAME OVER");
             gameOverTitle.setTextFill(Color.WHITE);
@@ -290,7 +295,7 @@ public class Main extends Application {
         soundEffectPlayer = new MediaPlayer(new Media(new File("resources/gameOver.mp3").toURI().toString()));
 
         // Application icon
-        primaryStage.getIcons().add(new Image("resources/tetris.png"));
+        primaryStage.getIcons().add(new Image("file:resources/tetris.png"));
 
         // Grid setup
         tetrisGrid = new GridPane();
@@ -392,7 +397,7 @@ public class Main extends Application {
         root.getChildren().addAll(borderPane, stackPane);
 
         // Elements of the pause screen
-        pauseImg = new ImageView(new Image("resources/pause.png"));
+        pauseImg = new ImageView(new Image("file:resources/pause.png"));
 
         pauseCenter = new BorderPane();
         pauseCenter.setCenter(pauseImg);
@@ -404,7 +409,7 @@ public class Main extends Application {
 
         // Creates the scene
         scene = new Scene(root);
-        scene.getStylesheets().add("resources/application.css");
+        scene.getStylesheets().add("file:resources/application.css");
         scene.setOnKeyReleased(ke -> {
             pressed = true;
         });
