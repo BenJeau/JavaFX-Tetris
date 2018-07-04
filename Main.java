@@ -41,28 +41,42 @@ import javafx.util.Duration;
 
 public class Main extends Application {
 
-    private boolean pressed, running, gameOver;
-    private final static int PIXEL = 30;
-    private int colorChoice, time;
+    private Arc halfCircle;
     private Board board;
-    private BorderPane borderPane, bp, sss;
+    private boolean pressed, running, gameOver;
+    private BorderPane borderPane, pauseCenter, gameOverCenter;
     private CheckBox checkGravity, checkSound, checkColor;
-    private GridPane grid;
-    private HBox hbox;
-    private Image image;
-    private ImageView imageView;
-    private Label subScore, subLevel, subLine, bot, score, line, level;
+    private double shadeThick;
+    private GridPane tetrisGrid;
+    private Group cellGroup;
+    private HBox root;
+    private ImageView pauseImg, gameOverImg;
+    private int colorChoice, shapeSpeed;
+    private Label subScore, subLevel, subLine, score, line, level, spacePause, gameOverTitle, gameOverSub;
+    private List<Point> points;
     private Map<Integer, Color> color1, color2;
     private Map<Integer, Map<Integer, Color>> colors;
-    private MediaPlayer player;
-    private PauseTransition pTransition;
-    private Rectangle recc;
+    private MediaPlayer mainThemePlayer;
+    private PauseTransition pauseTransition;
+    private Point currentPoint;
+    private Polygon topShade, bottomShade;
+    private Rectangle boardShade, square, topRec;
     private Scene scene;
-    private SequentialTransition sTransition;
-    private StackPane stack;
+    private SequentialTransition shapeTransition;
+    private StackPane stackPane;
     private Stage stage;
-    private VBox vboxTop, vboxBottom;
+    private Timeline musicTimeline;
+    private VBox vboxTop, vboxBottom, gameOverVbox;
+    
+    private final static int PIXEL = 30;
+    private final static int musicFadeInMilli = 400;
+    private final static int musicFadeOutMilli = 200;
 
+    /**
+     * Used for initial testing in the terminal. Use the WASD keys to move the shape
+     * and press enter after they keystroke(s). You can press the key multiple times
+     * and it will move in the specified direction the same amount of shapeSpeed.
+     */
     public static void playTerminal() {
         Board board = new Board();
         Scanner reader = new Scanner(System.in);
@@ -93,129 +107,146 @@ public class Main extends Application {
         reader.close();
     }
 
+    /**
+     * Paints the stage to reflect the data in the Board class.
+     */
     public void paint() {
         if (!board.getGameOver()) {
+            
+            // Updates the speed of the falling block if the speed changed
+            if (shapeSpeed != board.getTimePerBlock()) {
+                shapeTransition.stop();
+                createTransition();
+            }
+
+            // Updates the stats about the game
             score.setText(String.valueOf(board.getScore()));
             line.setText(String.valueOf(board.getNumClearedLines()));
             level.setText(String.valueOf(board.getLevel()));
 
-            if (time != board.getTimePerBlock()) {
-                sTransition.stop();
-                createTimer();
-            }
+            // Gets points of fallen shapes and remove everything from the tetrisGrid
+            points = board.getPoints();
+            tetrisGrid.getChildren().clear();
 
-            List<Point> points = board.getPoints();
-            grid.getChildren().clear();
-
+            // Iterates through each cell in the tetrisGrid
             for (int i = 0; i < Board.HEIGHT; i++) {
-
                 for (int j = 0; j < Board.WIDTH; j++) {
-                    Point currentPoint = new Point(j, i);
+                    currentPoint = new Point(j, i);
+                    cellGroup = new Group();
 
-                    Rectangle r = new Rectangle(PIXEL, PIXEL);
-                    Polygon topShade = new Polygon();
-                    Polygon bottomShade = new Polygon();
-                    double offset = (double) PIXEL / 7.5;
+                    // Shapes used for each cell
+                    square = new Rectangle(PIXEL, PIXEL);
+                    topShade = new Polygon();                    
+                    bottomShade = new Polygon();
 
+                    // Shade's thickness
+                    shadeThick = (double) PIXEL / 7.5;
+
+                    // If the current point was or is a part of a shape, color the square
                     if (points.contains(currentPoint)) {
-                        topShade.getPoints()
-                                .addAll(new Double[] { 0.0, 0.0, (double) PIXEL, 0.0, (double) PIXEL - offset, offset,
-                                        offset, offset, offset, (double) PIXEL - offset, 0.0, (double) PIXEL });
-
-                        bottomShade.getPoints()
-                                .addAll(new Double[] { 0.0, (double) PIXEL, (double) PIXEL, (double) PIXEL,
-                                        (double) PIXEL, 0.0, (double) PIXEL - offset, offset, (double) PIXEL - offset,
-                                        (double) PIXEL - offset, offset, (double) PIXEL - offset });
-
-                        topShade.setFill(Color.WHITE);
+                        // The top and left part of the shade
                         topShade.setOpacity(0.5);
+                        topShade.setFill(Color.WHITE);
+                        topShade.getPoints().addAll(new Double[] { 
+                            0.0, 0.0, 
+                            (double) PIXEL, 0.0, 
+                            (double) PIXEL - shadeThick, shadeThick,
+                            shadeThick, shadeThick, 
+                            shadeThick, (double) PIXEL - shadeThick, 
+                            0.0, (double) PIXEL 
+                        });
 
-                        bottomShade.setFill(Color.BLACK);
+                        // The bottom and right part of the shade
                         bottomShade.setOpacity(0.5);
-
-                        r.setFill(colors.get(colorChoice).get(points.get(points.indexOf(currentPoint)).getType()));
-
-                        grid.add(r, j, i);
-                        grid.add(topShade, j, i);
-                        grid.add(bottomShade, j, i);
-                    } else {
-                        topShade.setFill(Color.BLACK);
-                        topShade.setOpacity(0.1);
-                        topShade.getPoints()
-                                .addAll(new Double[] { 0.0, 0.0, (double) PIXEL, 0.0, (double) PIXEL - offset, offset,
-                                        offset, offset, offset, (double) PIXEL - offset, 0.0, (double) PIXEL });
-
                         bottomShade.setFill(Color.BLACK);
+                        bottomShade.getPoints().addAll(new Double[] { 
+                            0.0, (double) PIXEL, 
+                            (double) PIXEL, (double) PIXEL,
+                            (double) PIXEL, 0.0, 
+                            (double) PIXEL - shadeThick, shadeThick, 
+                            (double) PIXEL - shadeThick, (double) PIXEL - shadeThick,
+                             shadeThick, (double) PIXEL - shadeThick 
+                        });
+                        
+                        // Sets the color of the square according to its point type
+                        square.setFill(colors.get(colorChoice).get(points.get(points.indexOf(currentPoint)).getType()));
+
+                        cellGroup.getChildren().addAll(square, topShade, bottomShade);
+                    } else {
+                        // The top and left part of the shade
+                        topShade.setOpacity(0.1);
+                        topShade.setFill(Color.BLACK);
+                        topShade.getPoints().addAll(new Double[] { 
+                            0.0, 0.0, 
+                            (double) PIXEL, 0.0, 
+                            (double) PIXEL - shadeThick, shadeThick,
+                            shadeThick, shadeThick, 
+                            shadeThick, (double) PIXEL - shadeThick, 
+                            0.0, (double) PIXEL 
+                        });
+
+                        // The bottom and right part of the shade
                         bottomShade.setOpacity(0.25);
-                        bottomShade.getPoints()
-                                .addAll(new Double[] { 0.0, (double) PIXEL, (double) PIXEL, (double) PIXEL,
-                                        (double) PIXEL, 0.0, (double) PIXEL - offset, offset, (double) PIXEL - offset,
-                                        (double) PIXEL - offset, offset, (double) PIXEL - offset });
+                        bottomShade.setFill(Color.BLACK);
+                        bottomShade.getPoints().addAll(new Double[] { 
+                            0.0, (double) PIXEL, 
+                            (double) PIXEL, (double) PIXEL,
+                            (double) PIXEL, 0.0, 
+                            (double) PIXEL - shadeThick, shadeThick, 
+                            (double) PIXEL - shadeThick, (double) PIXEL - shadeThick, 
+                            shadeThick, (double) PIXEL - shadeThick 
+                        });
 
-                        Rectangle rec = new Rectangle(PIXEL, PIXEL / 2.65);
-                        rec.setOpacity(0.05);
-                        rec.setFill(Color.WHITE);
+                        // Used to create the glossy effect
+                        topRec = new Rectangle(PIXEL, PIXEL / 2.65);
+                        topRec.setOpacity(0.05);
+                        topRec.setFill(Color.WHITE);
 
-                        Arc arc = new Arc((double) PIXEL / 2.0, (double) PIXEL / 2.0, (double) PIXEL / 2.0,
-                                (double) PIXEL / 8.0, 0.0f, 180.0f);
-                        arc.setOpacity(0.05);
-                        arc.setFill(Color.WHITE);
-                        arc.setType(ArcType.ROUND);
-                        arc.setRotate(180.0);
+                        halfCircle = new Arc((double) PIXEL / 2.0, (double) PIXEL / 2.0, (double) PIXEL / 2.0, (double) PIXEL / 8.0, 0.0f, 180.0f);
+                        halfCircle.setOpacity(0.05);
+                        halfCircle.setFill(Color.WHITE);
+                        halfCircle.setType(ArcType.ROUND);
+                        halfCircle.setRotate(180.0);
 
-                        r.setFill(Color.GRAY);
-                        r.setOpacity((55.0 / 62.0 - ((double) i + 30.0) / ((double) Board.HEIGHT + 50)));
+                        // Colors the square in a sort of gradient
+                        square.setFill(Color.GRAY);
+                        square.setOpacity((55.0 / 62.0 - ((double) i + 30.0) / ((double) Board.HEIGHT + 50)));
 
-                        Group group = new Group();
-                        group.getChildren().addAll(r, topShade, bottomShade, arc, rec);
-
-                        grid.add(group, j, i);
+                        cellGroup.getChildren().addAll(square, topShade, bottomShade, halfCircle, topRec);
                     }
+                    tetrisGrid.add(cellGroup, j, i);
                 }
             }
         } else {
+            // Stops the game, the moving shape, and the music
             gameOver = true;
-
             running = false;
-            sTransition.stop();
-            stopMusic();
             setSceneDisable(true);
+            shapeTransition.stop();
+            stopMusic();
 
-            Image img = new Image("resources/gameOver.png");
-            ImageView ii = new ImageView(img);
-            Label de = new Label("GAME OVER");
-            Label dee = new Label(
-                    "You made " + board.getScore() + " points\nand reached level " + board.getLevel() + "!");
-            de.setTextFill(Color.WHITE);
-            de.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15.0));
-            de.setTextAlignment(TextAlignment.CENTER);
+            // Elements of the game over screen
+            gameOverImg = new ImageView(new Image("resources/gameOver.png"));
 
-            dee.setTextFill(Color.WHITE);
-            dee.setFont(Font.font("Segoe UI Semilight", 13.0));
-            dee.setTextAlignment(TextAlignment.CENTER);
+            gameOverTitle = new Label("GAME OVER");
+            gameOverTitle.setTextFill(Color.WHITE);
+            gameOverTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15.0));
+            gameOverTitle.setTextAlignment(TextAlignment.CENTER);
 
-            VBox vv = new VBox();
-            vv.getChildren().addAll(ii, de, dee);
-            vv.setAlignment(Pos.CENTER);
-            sss = new BorderPane();
-            sss.setCenter(vv);
-            stack.getChildren().addAll(recc, sss);
+            gameOverSub = new Label("You made " + board.getScore() + " points\nand reached level " + board.getLevel() + "!");
+            gameOverSub.setTextFill(Color.WHITE);
+            gameOverSub.setFont(Font.font("Segoe UI Semilight", 13.0));
+            gameOverSub.setTextAlignment(TextAlignment.CENTER);
+
+            gameOverVbox = new VBox();
+            gameOverVbox.getChildren().addAll(gameOverImg, gameOverTitle, gameOverSub);
+            gameOverVbox.setAlignment(Pos.CENTER);
+
+            gameOverCenter = new BorderPane();
+            gameOverCenter.setCenter(gameOverVbox);
+
+            stackPane.getChildren().addAll(boardShade, gameOverCenter);
         }
-    }
-
-    public void setSceneDisable(boolean value) {
-        level.setDisable(value);
-        subLevel.setDisable(value);
-        score.setDisable(value);
-        subScore.setDisable(value);
-        line.setDisable(value);
-        subLine.setDisable(value);
-
-        bot.setDisable(value);
-
-        checkColor.setDisable(value);
-        checkGravity.setDisable(value);
-        checkSound.setDisable(value);
     }
 
     @Override
@@ -245,25 +276,25 @@ public class Main extends Application {
         colors.put(1, color2);
 
         // Background music setup
-        player = new MediaPlayer(new Media(new File("resources/Tetris.wav").toURI().toString()));
-        player.setOnEndOfMedia(() -> {
-            player.seek(Duration.ZERO);
+        mainThemePlayer = new MediaPlayer(new Media(new File("resources/Tetris.wav").toURI().toString()));
+        mainThemePlayer.setOnEndOfMedia(() -> {
+            mainThemePlayer.seek(Duration.ZERO);
         });
 
         // Application icon
         primaryStage.getIcons().add(new Image("resources/tetris.png"));
 
         // Grid setup
-        grid = new GridPane();
-        grid.getStyleClass().add("grid");
-        grid.getStyleClass().add("background");
+        tetrisGrid = new GridPane();
+        tetrisGrid.getStyleClass().add("tetrisGrid");
+        tetrisGrid.getStyleClass().add("background");
 
         for (int i = 0; i < Board.WIDTH; i++) {
-            grid.getColumnConstraints().add(new ColumnConstraints(PIXEL));
+            tetrisGrid.getColumnConstraints().add(new ColumnConstraints(PIXEL));
         }
 
         for (int i = 0; i < Board.HEIGHT; i++) {
-            grid.getRowConstraints().add(new RowConstraints(PIXEL));
+            tetrisGrid.getRowConstraints().add(new RowConstraints(PIXEL));
         }
 
         // Bop left side of the game
@@ -295,7 +326,7 @@ public class Main extends Application {
         checkGravity.setSelected(true);
         checkGravity.focusedProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue) {
-                hbox.requestFocus();
+                root.requestFocus();
             }
         });
         checkGravity.selectedProperty().addListener((observable, oldValue, newValue) -> {
@@ -307,7 +338,7 @@ public class Main extends Application {
         checkSound.setSelected(true);
         checkSound.focusedProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue) {
-                hbox.requestFocus();
+                root.requestFocus();
             }
         });
         checkSound.selectedProperty().addListener((observable, oldValue, newValue) -> {
@@ -322,7 +353,7 @@ public class Main extends Application {
         checkColor.setSelected(true);
         checkColor.focusedProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue) {
-                hbox.requestFocus();
+                root.requestFocus();
             }
         });
         checkColor.selectedProperty().addListener((observable, oldValue, newValue) -> {
@@ -330,10 +361,10 @@ public class Main extends Application {
             paint();
         });
 
-        bot = new Label("press space to pause");
-        bot.getStyleClass().add("pause");
+        spacePause = new Label("press space to pause");
+        spacePause.getStyleClass().add("pause");
 
-        vboxBottom.getChildren().addAll(checkColor, checkSound, checkGravity, bot);
+        vboxBottom.getChildren().addAll(checkColor, checkSound, checkGravity, spacePause);
 
         // Seperate layouts from the top to the bottom
         borderPane = new BorderPane();
@@ -342,45 +373,45 @@ public class Main extends Application {
         borderPane.setBottom(vboxBottom);
 
         // Allows to overlays layouts for pausing the game
-        stack = new StackPane();
-        stack.getChildren().add(grid);
+        stackPane = new StackPane();
+        stackPane.getChildren().add(tetrisGrid);
 
         // The main layout of the game
-        hbox = new HBox();
-        hbox.getStyleClass().add("background");
-        hbox.setPadding(new Insets(5.0));
-        hbox.setSpacing(25.0);
-        hbox.getChildren().addAll(borderPane, stack);
+        root = new HBox();
+        root.getStyleClass().add("background");
+        root.setPadding(new Insets(5.0));
+        root.setSpacing(25.0);
+        root.getChildren().addAll(borderPane, stackPane);
 
-        image = new Image("resources/pause.png");
-        imageView = new ImageView(image);
+        // Elements of the pause screen
+        pauseImg = new ImageView(new Image("resources/pause.png"));
 
-        bp = new BorderPane();
-        bp.setCenter(imageView);
-        recc = new Rectangle(Board.WIDTH * PIXEL + 2 * (Board.WIDTH - 1),
-                Board.HEIGHT * PIXEL + 2 * (Board.HEIGHT - 1));
-        recc.setOpacity(0.5);
-        recc.setFill(Color.BLACK);
-        recc.toFront();
+        pauseCenter = new BorderPane();
+        pauseCenter.setCenter(pauseImg);
 
-        // Create the scene
-        scene = new Scene(hbox);
+        boardShade = new Rectangle(Board.WIDTH * PIXEL + 2 * (Board.WIDTH - 1), Board.HEIGHT * PIXEL + 2 * (Board.HEIGHT - 1));
+        boardShade.setOpacity(0.5);
+        boardShade.setFill(Color.BLACK);
+        boardShade.toFront();
+
+        // Creates the scene
+        scene = new Scene(root);
         scene.getStylesheets().add("resources/application.css");
         scene.setOnKeyReleased(ke -> {
             pressed = true;
         });
         scene.setOnKeyPressed((ke) -> {
             if (running) {
-                if (ke.getCode().equals(KeyCode.LEFT)) {
+                if (ke.getCode().equals(KeyCode.LEFT) || ke.getCode().equals(KeyCode.A)) {
                     board.moveLeft();
                     paint();
-                } else if (ke.getCode().equals(KeyCode.DOWN)) {
+                } else if (ke.getCode().equals(KeyCode.DOWN) || ke.getCode().equals(KeyCode.S)) {
                     board.moveDown();
                     paint();
-                } else if (ke.getCode().equals(KeyCode.RIGHT)) {
+                } else if (ke.getCode().equals(KeyCode.RIGHT) || ke.getCode().equals(KeyCode.D)) {
                     board.moveRight();
                     paint();
-                } else if (ke.getCode().equals(KeyCode.UP) && pressed) {
+                } else if ((ke.getCode().equals(KeyCode.UP) || ke.getCode().equals(KeyCode.W)) && pressed) {
                     pressed = false;
                     board.rotate();
                     paint();
@@ -388,23 +419,23 @@ public class Main extends Application {
             }
             if (ke.getCode().equals(KeyCode.SPACE)) {
                 if (gameOver) {
-                    sTransition.stop();
+                    shapeTransition.stop();
                     startNewGame();
                     board.setGravity(checkGravity.isSelected());
-                    stack.getChildren().removeAll(recc, sss);
+                    stackPane.getChildren().removeAll(boardShade, gameOverCenter);
                 } else {
                     if (running) {
                         running = false;
 
                         stopMusic();
-                        sTransition.stop();
-                        stack.getChildren().addAll(recc, bp);
+                        shapeTransition.stop();
+                        stackPane.getChildren().addAll(boardShade, pauseCenter);
                     } else {
                         running = true;
 
                         playMusic();
-                        sTransition.play();
-                        stack.getChildren().removeAll(recc, bp);
+                        shapeTransition.play();
+                        stackPane.getChildren().removeAll(boardShade, pauseCenter);
                     }
                 }
                 setSceneDisable(!running);
@@ -420,54 +451,86 @@ public class Main extends Application {
         stage.show();
     }
 
+    /**
+     * Creates/Resets variables needed to start a new game and calls .
+     */
     public void startNewGame() {
+        shapeSpeed = board.getTimePerBlock();
         board = new Board();
-
-        time = board.getTimePerBlock();
-
         running = true;
         gameOver = false;
         pressed = true;
 
+        mainThemePlayer.seek(Duration.ZERO);
         paint();
-        createTimer();
-        player.seek(Duration.ZERO);
+        createTransition();
         playMusic();
     }
 
-    public void createTimer() {
-        time = board.getTimePerBlock();
+    /**
+     * Creates a new transition for the moving shape. 
+     * Mostly called to changed the speed of the moving shape.
+     */
+    public void createTransition() {
+        shapeSpeed = board.getTimePerBlock();
 
-        sTransition = new SequentialTransition();
-        pTransition = new PauseTransition(Duration.millis(time));
-        pTransition.setOnFinished(evt -> {
+        shapeTransition = new SequentialTransition();
+        pauseTransition = new PauseTransition(Duration.millis(shapeSpeed));
+        pauseTransition.setOnFinished(evt -> {
             board.moveDown();
             paint();
         });
-        sTransition.getChildren().add(pTransition);
-        sTransition.setCycleCount(Timeline.INDEFINITE);
-        sTransition.play();
+        shapeTransition.getChildren().add(pauseTransition);
+        shapeTransition.setCycleCount(Timeline.INDEFINITE);
+        shapeTransition.play();
     }
 
+    /**
+     * Plays the Tetris music with a fade in.
+     */
     public void playMusic() {
         if (checkSound.isSelected()) {
-            player.play();
-            player.setVolume(0);
+            mainThemePlayer.play();
+            mainThemePlayer.setVolume(0);
 
-            Timeline timeline = new Timeline(
-                    new KeyFrame(Duration.millis(400), new KeyValue(player.volumeProperty(), 1)));
-            timeline.play();
+            musicTimeline = new Timeline(new KeyFrame(Duration.millis(musicFadeInMilli), new KeyValue(mainThemePlayer.volumeProperty(), 1)));
+            musicTimeline.play();
         }
     }
 
+    /**
+     * Stops the Tetris music with a fade out.
+     */
     public void stopMusic() {
-        Timeline timeline = new Timeline(new KeyFrame(Duration.millis(200), new KeyValue(player.volumeProperty(), 0)));
-        timeline.setOnFinished(evt -> {
-            player.pause();
+        musicTimeline = new Timeline(new KeyFrame(Duration.millis(musicFadeOutMilli), new KeyValue(mainThemePlayer.volumeProperty(), 0)));
+        musicTimeline.setOnFinished(evt -> {
+            mainThemePlayer.pause();
         });
-        timeline.play();
+        musicTimeline.play();
     }
 
+    /**
+     * Disables every element in the scene. Used to pause the game and
+     * when the game is finished.
+     */
+    public void setSceneDisable(boolean value) {
+        level.setDisable(value);
+        score.setDisable(value);
+        line.setDisable(value);
+        subLevel.setDisable(value);
+        subScore.setDisable(value);
+        subLine.setDisable(value);
+
+        checkColor.setDisable(value);
+        checkGravity.setDisable(value);
+        checkSound.setDisable(value);
+
+        spacePause.setDisable(value);
+    }
+
+    /**
+     * Main method.
+     */
     public static void main(String[] args) {
         launch(args);
     }
