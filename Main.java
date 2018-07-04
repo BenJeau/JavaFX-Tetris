@@ -56,7 +56,7 @@ public class Main extends Application {
     private List<Point> points;
     private Map<Integer, Color> color1, color2;
     private Map<Integer, Map<Integer, Color>> colors;
-    private MediaPlayer mainThemePlayer;
+    private MediaPlayer mainThemePlayer, soundEffectPlayer;
     private PauseTransition pauseTransition;
     private Point currentPoint;
     private Polygon topShade, bottomShade;
@@ -225,6 +225,11 @@ public class Main extends Application {
             shapeTransition.stop();
             stopMusic();
 
+            // Play sound effect
+            if (checkSound.isSelected()) {
+                soundEffectPlayer.play();
+            }
+
             // Elements of the game over screen
             gameOverImg = new ImageView(new Image("resources/gameOver.png"));
 
@@ -281,12 +286,15 @@ public class Main extends Application {
             mainThemePlayer.seek(Duration.ZERO);
         });
 
+        // Sound effect setup
+        soundEffectPlayer = new MediaPlayer(new Media(new File("resources/gameOver.mp3").toURI().toString()));
+
         // Application icon
         primaryStage.getIcons().add(new Image("resources/tetris.png"));
 
         // Grid setup
         tetrisGrid = new GridPane();
-        tetrisGrid.getStyleClass().add("tetrisGrid");
+        tetrisGrid.getStyleClass().add("grid");
         tetrisGrid.getStyleClass().add("background");
 
         for (int i = 0; i < Board.WIDTH; i++) {
@@ -461,10 +469,13 @@ public class Main extends Application {
         pressed = true;
         shapeSpeed = board.getTimePerBlock();
 
-        mainThemePlayer.seek(Duration.ZERO);
         paint();
         createTransition();
         playMusic();
+
+        soundEffectPlayer.stop();
+        soundEffectPlayer.seek(Duration.ZERO);
+        mainThemePlayer.seek(Duration.ZERO);
     }
 
     /**
